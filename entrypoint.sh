@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Check if jq is installed
 if ! command -v jq &>/dev/null; then
@@ -11,23 +12,35 @@ CONFIG_DIR="/data/config/sftp"
 USER_DIR="/data/sftp"
 SFTP_CONFIG="$CONFIG_DIR/sftp_config.json"
 
-# Function to create a user with appropriate permissions for existing directory structure
+# Function to create/update a user and enforce chroot-safe permissions.
 create_user() {
     local user=$1
     local password=$2
     local user_home="$USER_DIR/$user"
-    
-    # Set the top-level chroot directory ownership to root
+    local user_group
+
+    if [[ -z "$user" || -z "$password" ]]; then
+        echo "Skipping invalid user entry (missing user/password)."
+        return
+    fi
+
+    # Create the user with no shell and fixed home if it does not exist.
+    if ! id "$user" &>/dev/null; then
+        useradd -M -d "$user_home" -s /sbin/nologin "$user"
+    fi
+
+    user_group=$(id -gn "$user")
+
+    # Ensure the home/chroot directory exists and remains root-owned.
+    mkdir -p "$user_home"
     chown root:root "$user_home"
     chmod 755 "$user_home"
-    
-    # Recursively set ownership of all files and subdirectories to the user
-    chown -R "$user:$user" "$user_home"/*
-    
-    # Create the user with no shell, set password, and home directory
-    if ! id "$user" &>/dev/null; then
-        useradd -d "$user_home" -s /sbin/nologin "$user"
-    fi
+
+    # Ensure at least one writable directory exists for SFTP uploads.
+    mkdir -p "$user_home/upload"
+
+    # Recursively set ownership for everything inside the chroot, including hidden entries.
+    find "$user_home" -mindepth 1 -exec chown -R "$user:$user_group" {} +
 
     # Encrypt password and set it for the user
     echo "$user:$password" | chpasswd
