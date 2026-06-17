@@ -25,21 +25,15 @@ create_user() {
     local password=$2
     local user_home="$USER_DIR/$user"
     local user_group
-    local nologin_shell
 
     if [[ -z "$user" || -z "$password" ]]; then
         echo "Skipping invalid user entry (missing user/password)."
         return
     fi
 
-    # Create the user with no shell and fixed home if it does not exist.
-    nologin_shell="/usr/sbin/nologin"
-    if [[ ! -x "$nologin_shell" ]]; then
-        nologin_shell="/sbin/nologin"
-    fi
-
+    # Create the user with atmoz-compatible defaults and fixed home.
     if ! id "$user" &>/dev/null; then
-        useradd -M -d "$user_home" -s "$nologin_shell" "$user"
+        useradd --no-user-group --badname -M -d "$user_home" "$user"
     fi
 
     user_group=$(id -gn "$user")
