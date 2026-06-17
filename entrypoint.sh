@@ -12,12 +12,20 @@ CONFIG_DIR="/data/config/sftp"
 USER_DIR="/data/sftp"
 SFTP_CONFIG="$CONFIG_DIR/sftp_config.json"
 
+# OpenSSH chroot requires all path components to be root-owned and not writable.
+ensure_chroot_base_permissions() {
+    mkdir -p /data "$USER_DIR"
+    chown root:root /data "$USER_DIR"
+    chmod 755 /data "$USER_DIR"
+}
+
 # Function to create/update a user and enforce chroot-safe permissions.
 create_user() {
     local user=$1
     local password=$2
     local user_home="$USER_DIR/$user"
     local user_group
+    local nologin_shell
 
     if [[ -z "$user" || -z "$password" ]]; then
         echo "Skipping invalid user entry (missing user/password)."
@@ -25,8 +33,13 @@ create_user() {
     fi
 
     # Create the user with no shell and fixed home if it does not exist.
+    nologin_shell="/usr/sbin/nologin"
+    if [[ ! -x "$nologin_shell" ]]; then
+        nologin_shell="/sbin/nologin"
+    fi
+
     if ! id "$user" &>/dev/null; then
-        useradd -M -d "$user_home" -s /sbin/nologin "$user"
+        useradd -M -d "$user_home" -s "$nologin_shell" "$user"
     fi
 
     user_group=$(id -gn "$user")
@@ -45,6 +58,8 @@ create_user() {
     # Encrypt password and set it for the user
     echo "$user:$password" | chpasswd
 }
+
+ensure_chroot_base_permissions
 
 # Check if the configuration file exists and read it to set up users
 if [[ -f "$SFTP_CONFIG" ]]; then
