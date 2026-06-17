@@ -19,12 +19,42 @@ ensure_chroot_base_permissions() {
     chmod 755 /data "$USER_DIR"
 }
 
+enforce_user_home_permissions() {
+    local user=$1
+    local user_home=$2
+    local uid
+
+    if ! id "$user" &>/dev/null; then
+        return
+    fi
+
+    uid=$(id -u "$user")
+
+    # Chroot root must be owned by root and not writable by group/others.
+    mkdir -p "$user_home"
+    chown root:root "$user_home"
+    chmod 755 "$user_home"
+
+    # Keep a writable area for SFTP activity.
+    mkdir -p "$user_home/upload"
+
+    # Everything inside the chroot can belong to the SFTP user.
+    find "$user_home" -mindepth 1 -exec chown -h "$uid:users" {} +
+}
+
+enforce_existing_user_homes() {
+    while IFS=: read -r user _ _ _ _ home _; do
+        if [[ "$home" == "$USER_DIR"/* ]]; then
+            enforce_user_home_permissions "$user" "$home"
+        fi
+    done < /etc/passwd
+}
+
 # Function to create/update a user and enforce chroot-safe permissions.
 create_user() {
     local user=$1
     local password=$2
     local user_home="$USER_DIR/$user"
-    local user_group
 
     if [[ -z "$user" || -z "$password" ]]; then
         echo "Skipping invalid user entry (missing user/password)."
@@ -36,24 +66,14 @@ create_user() {
         useradd --no-user-group --badname -M -d "$user_home" "$user"
     fi
 
-    user_group=$(id -gn "$user")
-
-    # Ensure the home/chroot directory exists and remains root-owned.
-    mkdir -p "$user_home"
-    chown root:root "$user_home"
-    chmod 755 "$user_home"
-
-    # Ensure at least one writable directory exists for SFTP uploads.
-    mkdir -p "$user_home/upload"
-
-    # Recursively set ownership for everything inside the chroot, including hidden entries.
-    find "$user_home" -mindepth 1 -exec chown -R "$user:$user_group" {} +
+    enforce_user_home_permissions "$user" "$user_home"
 
     # Encrypt password and set it for the user
     echo "$user:$password" | chpasswd
 }
 
 ensure_chroot_base_permissions
+enforce_existing_user_homes
 
 # Check if the configuration file exists and read it to set up users
 if [[ -f "$SFTP_CONFIG" ]]; then
