@@ -12,7 +12,7 @@ if [ ! -s /data/hostkeys/ssh_host_ed25519_key ]; then
     ssh-keygen -q -t ed25519 -N '' -f /data/hostkeys/ssh_host_ed25519_key
 fi
 chmod 600 /data/hostkeys/ssh_host_ed25519_key
-groupadd -f coolops-sftp
+groupadd --system -f coolops-sftp
 jq -e '.version == 1 and (.users | type == "array")' "$config" >/dev/null
 while IFS= read -r row; do
     user=$(jq -r '.user' <<<"$row")
