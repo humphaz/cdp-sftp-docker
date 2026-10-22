@@ -1,0 +1,20 @@
+Port 22
+HostKey /data/hostkeys/ssh_host_ed25519_key
+PermitRootLogin no
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+UsePAM no
+AllowGroups coolops-sftp
+Subsystem sftp internal-sftp
+ChrootDirectory /data/sftp/%u
+ForceCommand internal-sftp -d /site -u 0027
+DisableForwarding yes
+PermitTTY no
+X11Forwarding no
+PermitTunnel no
+MaxAuthTries 3
+LoginGraceTime 30
+StrictModes yes
+LogLevel VERBOSE
