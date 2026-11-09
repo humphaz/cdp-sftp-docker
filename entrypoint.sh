@@ -12,6 +12,11 @@ CONFIG_DIR="/data/config/sftp"
 USER_DIR="/data/sftp"
 SFTP_CONFIG="$CONFIG_DIR/sftp_config.json"
 
+# User configuration changes must not change the SSH server identity.
+mkdir -p "$CONFIG_DIR/hostkeys" /run/sshd
+chown root:root "$CONFIG_DIR/hostkeys"
+/usr/local/sbin/sftp-hostkeys "$CONFIG_DIR/hostkeys" /etc/ssh
+
 # OpenSSH chroot requires all path components to be root-owned and not writable.
 ensure_chroot_base_permissions() {
     mkdir -p /data "$USER_DIR"
