@@ -12,6 +12,15 @@ CONFIG_DIR="/data/config/sftp"
 USER_DIR="/data/sftp"
 SFTP_CONFIG="$CONFIG_DIR/sftp_config.json"
 
+# Captured deployments read their exact SSH files from read-only mounts.
+SSH_STATE=/run/sftp-ssh-state
+mkdir -p /run/sshd
+if [[ ! -d "$SSH_STATE" ]]; then
+    mkdir -p "$CONFIG_DIR/hostkeys"
+    chown root:root "$CONFIG_DIR/hostkeys"
+    /usr/local/sbin/sftp-hostkeys "$CONFIG_DIR/hostkeys" /etc/ssh
+fi
+
 # OpenSSH chroot requires all path components to be root-owned and not writable.
 ensure_chroot_base_permissions() {
     mkdir -p /data "$USER_DIR"
@@ -90,5 +99,8 @@ else
 fi
 
 # Start the SSH server
+if [[ -d "$SSH_STATE" ]]; then
+    bash /usr/local/sbin/verify-sftp-ssh-state "$SSH_STATE"
+fi
 exec /usr/sbin/sshd -D -e
 

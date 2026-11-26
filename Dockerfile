@@ -13,11 +13,13 @@ ENV SFTP_CONFIG /data/config/sftp/sftp_config.json
 
 # Copy the entrypoint script that will handle user creation
 COPY entrypoint.sh /entrypoint.sh
+COPY hostkeys.sh /usr/local/sbin/sftp-hostkeys
+COPY verify-ssh-state.sh /usr/local/sbin/verify-sftp-ssh-state
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
-# Generate SSH host keys if they don't already exist
-RUN mkdir -p /etc/ssh && \
-    ssh-keygen -A
+# Each deployment owns its keys in the existing persistent config mount.
+# Never bake a server identity into an image.
+RUN rm -f /etc/ssh/ssh_host_* && chmod 755 /usr/local/sbin/sftp-hostkeys
 
 ENTRYPOINT ["/entrypoint.sh"]
 

@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!entrypoint.sh
+!hostkeys.sh
+!verify-ssh-state.sh
